@@ -1,0 +1,122 @@
+name: Build Custom Kernel (gta4l)
+
+on:
+  workflow_dispatch:
+
+env:
+  DEVICE_NAME : "samsung_gta4l"
+  DEVICE_CODENAME : "gta4l"
+
+  CUSTOM_CMDS : "CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu-"
+  EXTRA_CMDS : "LLVM=1 LLVM_IAS=1 CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip READELF=llvm-readelf HOSTCC=clang HOSTCXX=clang++"
+
+  # استخدام المستودع الحالي كمصدر للنواة
+  KERNEL_SOURCE : "."
+  KERNEL_BRANCH : ""
+
+  CLANG_SOURCE : ""
+  CLANG_BRANCH : ""
+
+  GCC_GNU : true
+  GCC_64_SOURCE : "https://github.com/nduykha/gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu.git"
+  GCC_64_BRANCH : "main"
+  GCC_32_SOURCE : ""
+  GCC_32_BRANCH : ""
+
+  DEFCONFIG_SOURCE: ""
+  DEFCONFIG_NAME : "gta4l_eur_open_defconfig" # تأكد من أن هذا هو اسم الملف الصحيح
+  DEFCONFIG_ORIGIN_IMAGE: ""
+  DEFCONFIG_FROM_BOOT: false
+
+  KERNELSU_SOURCE : ""
+  KERNELSU_BRANCH : ""
+  KERNELSU_AUTO_GET : "true"
+  KERNELSU_AUTO_FORK : "next"
+
+  SUSFS_ENABLE : "true"
+  SUSFS_FIXED : "false"
+
+  AK3_SOURCE : "https://github.com/osm0sis/AnyKernel3.git"
+  AK3_BRANCH : "master"
+
+  BOOT_SOURCE : ""
+  NEED_DTBO : false
+  NEED_SAFE_DTBO : false
+
+  ROM_TEXT : "lineageos24_a17"
+  PYTHON_VERSION: "3"
+  PACK_METHOD: "AnyKernel3"
+  PACK_KMODULES: "false"
+  KERNELSU_METHOD: "shell"
+
+  PATCHES_SOURCE: "JackA1ltman/NonGKI_Kernel_Patches"
+  PATCHES_BRANCH: "mainline"
+  SUSFS_FOLDER_FIXED: ""
+  SUSFS_PATCH_FIXED: ""
+
+  REKERNEL_ENABLE: "false"
+  DROIDSPACES_ENABLE: "false"
+  NOMOUNT_ENABLE: "false"
+  BASEBAND_GUARD_ENABLE: "false"
+
+  HOOK_METHOD: "syscall"
+  KERNEL_PATCH: "false"
+  KPM_ENABLE: "false"
+  KPM_INLINE: "false"
+  KPM_KPATCH_NEXT: "false"
+  KPM_PATCH_SOURCE: "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU_patch/refs/heads/main/kpm/patch_linux"
+
+  GENERATE_DTB: "true"
+  GENERATE_CHIP: "qcom"
+  BUILD_DEBUGGER: "false"
+  SKIP_PATCH: "false"
+  BUILD_OTHER_CONFIG: "false"
+  MERGE_CONFIG_FILES: ""
+  FREE_MORE_SPACE: "true"
+
+jobs:
+  build-kernel:
+    name: Build Kernel
+    runs-on: ubuntu-24.04
+    env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_HARDLINK: "true"
+
+    steps:
+      - name: ⏰ Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: 🚀 Configure Fast APT Mirror
+        uses: vegardit/fast-apt-mirror.sh@v1
+        with:
+          exclude-current: true
+
+      - name: ⌛️ Compilation environment preparation
+        uses: ./.github/workflows/build-env
+
+      - name: ⚙️ Get necessary tools
+        uses: ./.github/workflows/build-ready
+
+      - name: 🪝 Patch Kernel of SUSFS
+        uses: ./.github/workflows/patch-susfs
+
+      # التعديلات المخصصة (تفعيل OverlayFS)
+      - name: 🪛 Extra Kernel Options
+        run: |
+          cd $GITHUB_WORKSPACE
+          echo "CONFIG_OVERLAY_FS_REDIRECT_DIR=y" >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
+          echo "CONFIG_OVERLAY_FS_INDEX=y" >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
+          echo "CONFIG_OVERLAY_FS_METACOPY=y" >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
+          echo "CONFIG_COMPAT=y" >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
+
+      - name: 🚀 Build Process
+        uses: ./.github/workflows/build-process
+
+      - name: 🔩 Pack Process
+        uses: ./.github/workflows/pack-process
+
+      - name: ✏️ Upload Artifacts
+        uses: ./.github/workflows/upload-files
