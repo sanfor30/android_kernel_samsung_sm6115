@@ -10,7 +10,6 @@ env:
   CUSTOM_CMDS : "CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu-"
   EXTRA_CMDS : "LLVM=1 LLVM_IAS=1 CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip READELF=llvm-readelf HOSTCC=clang HOSTCXX=clang++"
 
-  # استخدام المستودع الحالي كمصدر للنواة
   KERNEL_SOURCE : "."
   KERNEL_BRANCH : ""
 
@@ -24,7 +23,7 @@ env:
   GCC_32_BRANCH : ""
 
   DEFCONFIG_SOURCE: ""
-  DEFCONFIG_NAME : "gta4l_eur_open_defconfig" # تأكد من أن هذا هو اسم الملف الصحيح
+  DEFCONFIG_NAME : "gta4l_eur_open_defconfig"
   DEFCONFIG_ORIGIN_IMAGE: ""
   DEFCONFIG_FROM_BOOT: false
 
@@ -86,8 +85,12 @@ jobs:
     steps:
       - name: ⏰ Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: 🧹 Clean Submodules (Bypass)
+        run: |
+          # حذف أي إشارة لمجلدات فرعية قد تسبب أخطاء أثناء البناء
+          rm -f .gitmodules
+          git config --global --unset-all submodule.recurse || true
 
       - name: 🚀 Configure Fast APT Mirror
         uses: vegardit/fast-apt-mirror.sh@v1
